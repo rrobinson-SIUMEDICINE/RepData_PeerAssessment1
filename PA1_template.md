@@ -9,6 +9,7 @@ library(dplyr)
 library(ggplot2)
 #set echo to be = TRUE
 opts_chunk$set(echo = TRUE)
+
 ```
 
 ## Loading and preprocessing the data
@@ -40,7 +41,7 @@ hist(stepsPerDay$total, main="Distribution of total steps per day",
      xlab="Total steps per day")
 
 ```
-
+![Figure1](./images/fig1.png)
 
 ## What is the average daily activity pattern?
 ```{r}
@@ -60,6 +61,7 @@ max_steps <- which.max(intervalSteps$steps)
 intervalSteps[max_steps, ]
 
 ```
+![Figure2](./images/fig2.png)
 
 ## Imputing missing values
 ```{r}
@@ -90,7 +92,7 @@ hist(IMPUTEDstepsPerDay$total, main="Distribution of total steps per day (Impute
 #how does the imputedData differ from researchData?
 summary(IMPUTEDstepsPerDay)
 ```
-
+![Figure3](./images/fig3.png)
 
 ## Are there differences in activity patterns between weekdays and weekends?
 ```{r}
@@ -116,3 +118,5 @@ qplot(interval,
       main = "") +
   facet_wrap(~ type_of_day, ncol = 1)
 ```
+
+![Figure4](./images/fig4.png)

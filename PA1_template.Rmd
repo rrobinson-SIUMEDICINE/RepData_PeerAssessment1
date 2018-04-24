@@ -9,6 +9,9 @@ library(dplyr)
 library(ggplot2)
 #set echo to be = TRUE
 opts_chunk$set(echo = TRUE)
+output:
+  md_document:
+    variant: markdown_github
 ```
 
 ## Loading and preprocessing the data
