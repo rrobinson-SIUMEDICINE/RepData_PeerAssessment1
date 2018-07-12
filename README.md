@@ -1,168 +1,95 @@
-## Introduction
+---
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+# Peer-graded Assignment: Prediction Assignment Writeup
 
-It is now possible to collect a large amount of data about personal
-movement using activity monitoring devices such as a
-[Fitbit](http://www.fitbit.com), [Nike
-Fuelband](http://www.nike.com/us/en_us/c/nikeplus-fuelband), or
-[Jawbone Up](https://jawbone.com/up). These type of devices are part of
-the "quantified self" movement -- a group of enthusiasts who take
-measurements about themselves regularly to improve their health, to
-find patterns in their behavior, or because they are tech geeks. But
-these data remain under-utilized both because the raw data are hard to
-obtain and there is a lack of statistical methods and software for
-processing and interpreting the data.
 
-This assignment makes use of data from a personal activity monitoring
-device. This device collects data at 5 minute intervals through out the
-day. The data consists of two months of data from an anonymous
-individual collected during the months of October and November, 2012
-and include the number of steps taken in 5 minute intervals each day.
+## Objectives
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases
 
-## Data
+## Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
 
-The data for this assignment can be downloaded from the course web
-site:
+## Data Source
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har.
 
-* Dataset: [Activity monitoring data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) [52K]
+## Reference
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013. 
 
-The variables included in this dataset are:
+###Set up RStudio to work with this assignment.
+```{r}
+#load libraries
+library(knitr)
+library(caret)
+library(randomForest)
+library(gbm)
+library(doMC)
+registerDoMC(cores = 8)
+#set echo to be = TRUE
+opts_chunk$set(echo = TRUE)
+```
 
-* **steps**: Number of steps taking in a 5-minute interval (missing
-    values are coded as `NA`)
 
-* **date**: The date on which the measurement was taken in YYYY-MM-DD
-    format
+###Load data for processing and analysis
+Data loaded from primary CSV files, NAs removed, pml-training.csv partitioned 60/40 for training and test partitions for machine learning model development.
+```{r}
+training_data <- read.csv('./pml-training.csv', header=T, na.strings=c("NA","#DIV/0!", ""))
+validation_data <- read.csv('./pml-testing.csv', header=T, na.strings=c("NA","#DIV/0!", ""))
 
-* **interval**: Identifier for the 5-minute interval in which
-    measurement was taken
+training_data<-training_data[,colSums(is.na(training_data)) == 0]
+validation_data <-validation_data[,colSums(is.na(validation_data)) == 0]
 
+# Variables that do not impact movement analysis (user_name, raw_timestamp_part_1, raw_timestamp_part_,2 cvtd_timestamp, new_window, num_window) deleted.
+training_data   <-training_data[,-c(1:7)]
+validation_data <-validation_data[,-c(1:7)]
 
+set.seed(54321)
+div_data <- createDataPartition(y=training_data$classe, p=0.6, list=FALSE)
+model_train <- training_data[div_data, ]
+model_test <- training_data[-div_data, ]
+```
 
 
-The dataset is stored in a comma-separated-value (CSV) file and there
-are a total of 17,568 observations in this
-dataset.
+## Random Forest Model
+First ML technique used is random forest.  This choice is based on familiarity with this technique from other projects.
+```{r}
+Model_RF <- randomForest(classe ~. , data=model_train, method="class")
 
+Predictions_RF <- predict(Model_RF, model_test, type = "class")
 
-## Assignment
+confusionMatrix(Predictions_RF, model_test$classe)
+```
 
-This assignment will be described in multiple parts. You will need to
-write a report that answers the questions detailed below. Ultimately,
-you will need to complete the entire assignment in a **single R
-markdown** document that can be processed by **knitr** and be
-transformed into an HTML file.
 
-Throughout your report make sure you always include the code that you
-used to generate the output you present. When writing code chunks in
-the R markdown document, always use `echo = TRUE` so that someone else
-will be able to read the code. **This assignment will be evaluated via
-peer assessment so it is essential that your peer evaluators be able
-to review the code for your analysis**.
+##GBM Model
+Second choice of ML technique for this project.  Will compare with random forest.
+```{r}
 
-For the plotting aspects of this assignment, feel free to use any
-plotting system in R (i.e., base, lattice, ggplot2)
+GBM_Model <- train(classe ~ ., method = "gbm", data = model_train, verbose = FALSE, trControl = trainControl(method = "cv", number = 3))
 
-Fork/clone the [GitHub repository created for this
-assignment](http://github.com/rdpeng/RepData_PeerAssessment1). You
-will submit this assignment by pushing your completed files into your
-forked repository on GitHub. The assignment submission will consist of
-the URL to your GitHub repository and the SHA-1 commit ID for your
-repository state.
+##set verbose to false to suppress data output on iterations for a cleaner report.
+##change to TRUE if full information desired
 
-NOTE: The GitHub repository also contains the dataset for the
-assignment so you do not have to download the data separately.
+Predictions_GBM <- predict(GBM_Model, model_test)
 
+confusionMatrix(Predictions_GBM, model_test$classe)
+```
 
+##Prediction Model Selection
+The random forest model has a predictive accuracy of 99.41% and a very high sensitivity (98.8%-99.79%) and specificity (99.69%-100%) with this dataset (p < 0.001).
 
-### Loading and preprocessing the data
+The GBM model has a predictive accuracy of 96.32% and a very high sensitivity (94.20%-98.03%) and specificity (98.44%-99.73%) with this dataset (p < 0.001).
 
-Show any code that is needed to
+The random forest model has superiority in this comparison, so it was selected for further testing.  
 
-1. Load the data (i.e. `read.csv()`)
-
-2. Process/transform the data (if necessary) into a format suitable for your analysis
-
-
-### What is mean total number of steps taken per day?
-
-For this part of the assignment, you can ignore the missing values in
-the dataset.
-
-1. Make a histogram of the total number of steps taken each day
-
-2. Calculate and report the **mean** and **median** total number of steps taken per day
-
-
-### What is the average daily activity pattern?
-
-1. Make a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
-
-2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
-
-
-### Imputing missing values
-
-Note that there are a number of days/intervals where there are missing
-values (coded as `NA`). The presence of missing days may introduce
-bias into some calculations or summaries of the data.
-
-1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with `NA`s)
-
-2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
-
-3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
-
-4. Make a histogram of the total number of steps taken each day and Calculate and report the **mean** and **median** total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
-
-
-### Are there differences in activity patterns between weekdays and weekends?
-
-For this part the `weekdays()` function may be of some help here. Use
-the dataset with the filled-in missing values for this part.
-
-1. Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
-
-1. Make a panel plot containing a time series plot (i.e. `type = "l"`) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). The plot should look something like the following, which was created using **simulated data**:
-
-![Sample panel plot](instructions_fig/sample_panelplot.png) 
-
-
-**Your plot will look different from the one above** because you will
-be using the activity monitor data. Note that the above plot was made
-using the lattice system but you can make the same version of the plot
-using any plotting system you choose.
-
-
-## Submitting the Assignment
-
-To submit the assignment:
-
-1. Commit your completed `PA1_template.Rmd` file to the `master` branch of your git repository (you should already be on the `master` branch unless you created new ones)
-
-2. Commit your `PA1_template.md` and `PA1_template.html` files produced by processing your R markdown file with the `knit2html()` function in R (from the **knitr** package)
-
-3. If your document has figures included (it should) then they should have been placed in the `figure/` directory by default (unless you overrode the default). Add and commit the `figure/` directory to your git repository.
-
-4. Push your `master` branch to GitHub.
-
-5. Submit the URL to your GitHub repository for this assignment on the course web site.
-
-In addition to submitting the URL for your GitHub repository, you will
-need to submit the 40 character SHA-1 hash (as string of numbers from
-0-9 and letters from a-f) that identifies the repository commit that
-contains the version of the files you want to submit. You can do this
-in GitHub by doing the following:
-
-1. Go into your GitHub repository web page for this assignment
-
-2. Click on the "?? commits" link where ?? is the number of commits you have in the repository. For example, if you made a total of 10 commits to this repository, the link should say "10 commits".
-
-3. You will see a list of commits that you have made to this repository. The most recent commit is at the very top. If this represents the version of the files you want to submit, then just click the "copy to clipboard" button on the right hand side that should appear when you hover over the SHA-1 hash. Paste this SHA-1 hash into the course web site when you submit your assignment. If you don't want to use the most recent commit, then go down and find the commit you want and copy the SHA-1 hash.
-
-A valid submission will look something like (this is just an **example**!)
-
-```r
-https://github.com/rdpeng/RepData_PeerAssessment1
-
-7c376cc5447f11537f8740af8e07d6facc3d9645
+## Test model for predictive ability
+```{r}
+finalPredictions <- predict(Model_RF, newdata=validation_data)
+finalResults <- data.frame(
+  problem_id=validation_data$problem_id,
+  predicted=finalPredictions)
+print(finalResults)
 ```
